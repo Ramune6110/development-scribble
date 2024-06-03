@@ -25,3 +25,8 @@ development-scribble
 | 19 | **再評価: 発生確率** | 是正措置後の発生確率を再評価することです。 |
 | 20 | **再評価: 検出能力** | 是正措置後の検出能力を再評価することです。 |
 | 21 | **再評価: RPN** | 是正措置後のリスク優先度番号を再計算することです。 |
+
+https://www.iqasystem.com/news/dfmea-complete-guide/  
+https://www.ansys.com/ja-jp/blog/what-is-dfmea
+
+
