@@ -74,3 +74,9 @@ GitHubのブランチ保護ルールには、編集やプッシュを制限す�
 ＜参考文献＞  
 https://zenn.dev/json_hardcoder/articles/f9b534377103a4  
 https://qiita.com/KeisukeKudo/items/6404f51d1f4407661321  
+
+# ３．Pull，Push
+https://qiita.com/hiroaki-u/items/4e97f338ad18fca142b8  
+https://qiita.com/nt-7/items/c5ea999a2638e03ee418
+
+
