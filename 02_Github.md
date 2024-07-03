@@ -1,3 +1,7 @@
+# １．新規リポジトリ作成
+https://qiita.com/sodaihirai/items/caf8d39d314fa53db4db  
+https://qiita.com/ucan-lab/items/e02f2d3a35f266631f24#_reference-7cbea668d512073f0df4
+
 # ２．ブランチ保護ルール
 
 GitHubでは、特定のブランチに対して編集やプッシュを完全に禁止することが可能です。これを行うためには、「ブランチ保護ルール」を設定します。以下はその手順です。
