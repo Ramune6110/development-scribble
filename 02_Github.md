@@ -242,6 +242,91 @@ jobs:
 
 GitHub Actionsを使用すると、リポジトリ内で様々なタスクを自動化できます。ワークフローを定義することで、コードのビルドやテスト、デプロイなどを簡単に自動化できます。上記のようなシンプルなワークフローから始めて、必要に応じて複雑なワークフローを作成していくことができます。
 
+## simulinkのCI/CD
+SimulinkモデルをGitHubで管理し、GitHub Actionsを使ってそのモデルに対して自動化タスクを実行するには、Simulinkの実行環境であるWindowsを指定してワークフローを構成する必要があります。以下は、Simulinkモデルのビルドとテストを自動化するためのYAMLファイルの例です。
+
+### Simulinkモデル用のGitHub Actionsワークフロー例
+
+```yaml
+name: Simulink CI
+
+on: 
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up MATLAB
+      uses: matlab-actions/setup-matlab@v1
+      with:
+        release: R2022b  # 使用するMATLABのバージョンを指定
+
+    - name: Run Simulink tests
+      run: |
+        matlab -batch "run('path/to/your/simulink_test_script.m')"
+```
+
+### 詳細な説明
+
+1. **name: Simulink CI**:
+   - ワークフローの名前です。Simulinkの継続的インテグレーション（CI）プロセスを表します。
+
+2. **on**:
+   - このワークフローがトリガーされるイベントを指定します。ここでは、`main`ブランチへのプッシュとプルリクエストがトリガーとなります。
+
+3. **jobs**:
+   - ワークフロー内のジョブを定義します。ここでは、`build`というジョブを定義しています。
+
+4. **runs-on: windows-latest**:
+   - ジョブが実行される環境を指定します。SimulinkはWindows上で実行されるため、`windows-latest`を使用します。
+
+5. **steps**:
+   - ジョブ内の各ステップを定義します。各ステップは個々のタスクです。
+
+6. **Checkout repository**:
+   - コードをリポジトリからチェックアウトするステップです。`actions/checkout`アクションを使用しています。
+
+7. **Set up MATLAB**:
+   - MATLAB環境をセットアップするステップです。`matlab-actions/setup-matlab`アクションを使用し、MATLABのバージョンを指定します。
+
+8. **Run Simulink tests**:
+   - Simulinkテストを実行するステップです。ここでは、MATLABのバッチモードを使用して、指定されたスクリプトを実行します。スクリプト内でSimulinkモデルのビルドやテストを行います。
+
+### Simulinkテストスクリプトの例
+
+以下は、Simulinkモデルのテストを行うMATLABスクリプトの例です。
+
+```matlab
+% path/to/your/simulink_test_script.m
+
+% モデルを開く
+open_system('your_model_name')
+
+% モデルをビルド
+set_param('your_model_name', 'SimulationCommand', 'update')
+
+% テストの実行
+% ここにテストスクリプトを記述
+% 例: シミュレーションの実行と結果の検証
+simOut = sim('your_model_name');
+assert(~isempty(simOut), 'Simulation output is empty')
+
+% モデルを閉じる
+close_system('your_model_name', 0)
+```
+
+このワークフローとスクリプトにより、Simulinkモデルのビルドとテストを自動化できます。GitHub Actionsを利用することで、コードの品質を保ち、リリースプロセスを効率化できます。
+
 <参考文献>  
 https://qiita.com/s3i7h/items/b50ceb0008edc3c0312e  
 https://qiita.com/shun198/items/14cdba2d8e58ab96cf95  
