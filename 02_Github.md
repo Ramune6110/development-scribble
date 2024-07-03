@@ -79,4 +79,8 @@ https://qiita.com/KeisukeKudo/items/6404f51d1f4407661321
 https://qiita.com/hiroaki-u/items/4e97f338ad18fca142b8  
 https://qiita.com/nt-7/items/c5ea999a2638e03ee418
 
+# ４．brnach切る
+https://qiita.com/ysk91_engineer/items/f7676f2a7cde7251132b  
+https://qiita.com/shuntaro_tamura/items/6c8bf792087fe5dc5103
+
 
