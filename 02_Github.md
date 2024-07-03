@@ -244,3 +244,5 @@ GitHub Actionsを使用すると、リポジトリ内で様々なタスクを自
 
 <参考文献>  
 https://qiita.com/s3i7h/items/b50ceb0008edc3c0312e  
+https://qiita.com/shun198/items/14cdba2d8e58ab96cf95  
+https://www.kagoya.jp/howto/it-glossary/develop/githubactions/
