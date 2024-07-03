@@ -149,5 +149,6 @@ git push origin v1.0
 タグは、特定の時点を記録し、ソフトウェアのバージョンを管理するための便利なツールです。特定のコミットに名前を付けることで、重要なバージョンを簡単に参照し、管理することができます。タグを使うことで、プロジェクトのバージョン管理がより効率的になります。
 
 <参考文献>  
-https://www.kagoya.jp/howto/rentalserver/webtrend/gittag/
+https://www.kagoya.jp/howto/rentalserver/webtrend/gittag/  
+https://style.potepan.com/articles/31066.html
 
