@@ -461,3 +461,76 @@ https://www.kagoya.jp/howto/it-glossary/develop/githubactions/
 ### まとめ
 
 プルリクエストは、GitHubでの共同開発を円滑に進めるための重要な機能です。ブランチを作成し、変更を加え、プルリクエストを通じて他の開発者に変更をレビューしてもらい、最終的に公式なリポジトリに統合する流れを理解することで、効率的かつ効果的にプロジェクトを進めることができます。初心者の方は、まずは小さな変更から始めて、プルリクエストの流れに慣れると良いでしょう。
+
+# ８．gitロック
+GitやGitHub自体には、特定のブランチ内の特定のファイルやフォルダに対する編集や変更を直接制限する機能はありません。しかし、これを実現するためのいくつかの方法があります。
+
+### 1. **GitHub ActionsとCI/CDパイプラインの利用**
+
+特定のファイルやフォルダへの変更を防ぐために、GitHub Actionsや他のCI/CDパイプラインツールを使って、プルリクエストやコミットがそのファイルやフォルダに変更を加えた場合にビルドを失敗させる方法があります。
+
+以下は、GitHub Actionsを使った例です。
+
+#### 例: `.github/workflows/restrict-files.yml`ファイルを作成
+
+```yaml
+name: Restrict File Changes
+
+on: 
+  pull_request:
+    paths:
+      - 'restricted-folder/**'
+      - 'restricted-file.txt'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check for restricted file changes
+      run: |
+        echo "Changes to restricted files are not allowed."
+        exit 1
+```
+
+このワークフローは、指定したファイルやフォルダに変更が加えられた場合にビルドを失敗させます。
+
+### 2. **Gitフックの利用**
+
+ローカルリポジトリでプリコミットフックやプッシュフックを使用して、特定のファイルやフォルダへの変更を拒否することができます。
+
+#### 例: プリコミットフック
+
+```bash
+#!/bin/sh
+# .git/hooks/pre-commit
+
+# List of restricted files or directories
+restricted_files=("restricted-folder/" "restricted-file.txt")
+
+for file in "${restricted_files[@]}"; do
+  if git diff --cached --name-only | grep -q "^$file"; then
+    echo "Error: Changes to $file are not allowed."
+    exit 1
+  fi
+done
+```
+
+このスクリプトを`.git/hooks/pre-commit`に保存し、実行権限を与えることで、指定したファイルやフォルダに変更が加えられた場合にコミットを拒否します。
+
+### 3. **ブランチ保護ルールとコードオーナーシップ**
+
+GitHubのブランチ保護ルールとコードオーナーファイル（`CODEOWNERS`）を組み合わせて使用することで、特定のファイルやフォルダに対する変更を制限できます。
+
+#### 例: `CODEOWNERS`ファイルの設定
+
+```
+# CODEOWNERS
+/restricted-folder/ @username
+/restricted-file.txt @username
+```
+
+この設定により、`restricted-folder`フォルダや`restricted-file.txt`ファイルへの変更は指定されたユーザーの承認を必要とします。
+
+### まとめ
+
+これらの方法を組み合わせて使用することで、GitやGitHubで特定のブランチ内の特定のファイルやフォルダに対する編集や変更を制限することができます。直接的な機能はありませんが、CI/CDツールやGitフックを活用することで、実質的に制限を実現できます。
