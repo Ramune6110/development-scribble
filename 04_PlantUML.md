@@ -61,3 +61,33 @@ PlantUMLのjarファイルを使用しない場合、オンラインサービス
 
 ### 結論
 PlantUMLのjarファイルがないと、PythonからローカルでPlantUMLの図を自動的に生成するのは難しいです。jarファイルを使用するのが一般的であり、最も信頼性の高い方法です。したがって、PlantUMLのjarファイルをダウンロードして使用することをお勧めします。
+
+### 3重ループ
+
+```plantuml
+@startuml
+start
+
+:Initialize variables;
+
+repeat
+    :for (int i = 0; i < N; i++);
+    repeat
+        :for (int j = 0; j < M; j++);
+        repeat
+            :for (int k = 0; k < L; k++);
+            repeat
+                :Process;
+                if (break_condition?) then (yes)
+                    break
+                else (no)
+                    :Continue processing;
+                endif
+            repeat while (condition?)
+        repeat while (k < L)
+    repeat while (j < M)
+repeat while (i < N)
+
+stop
+@enduml
+```
