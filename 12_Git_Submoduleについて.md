@@ -734,3 +734,48 @@ GitのサブモジュールとC言語のポインタは、どちらも「別の�
   一方、C言語のポインタは、プログラムのメモリ管理やデータ操作を行うための低レベルな機構です。
 
 そのため、**GitサブモジュールをC言語のポインタと「概念的に似ている」と言うことはできますが、実際の用途や動作は全く異なります**。
+
+```mermaid
+gitGraph
+    commit tag: "v1.0"
+    branch develop
+    commit
+    branch feature
+    commit
+    checkout main
+    checkout develop
+    commit
+    commit
+    checkout main
+    merge develop tag: "v2.0"
+    commit tag: "v2.1"
+    checkout feature
+    commit
+    checkout main
+    merge feature tag: "v3.0"
+    commit
+```
+
+```mermaid
+gitGraph
+    commit tag: "v1.0"
+    branch develop
+    commit
+    branch feature
+    commit
+    checkout main
+    checkout develop
+    checkout main
+    merge develop tag: "v2.0"
+    checkout feature
+    commit
+    commit
+    commit
+    checkout main
+    merge feature tag: "v3.0"
+    commit
+```
+
+```mermaid
+```
+
