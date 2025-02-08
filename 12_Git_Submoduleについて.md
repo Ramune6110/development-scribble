@@ -777,5 +777,32 @@ gitGraph
 ```
 
 ```mermaid
+gitGraph
+    commit tag: "v1.0"
+    branch develop
+    commit
+    commit
+    commit
+    branch feature
+    commit
+    checkout main
+    checkout develop
+    commit
+    checkout main
+    merge develop tag: "v2.0"
+    checkout feature
+    commit
+    checkout main
+    merge feature tag: "v3.0"
+    commit
 ```
+
+```mermaid
+gitGraph
+    commit tag: "v1.0"
+    commit tag: "v2.0"
+    commit tag: "v3.0"
+    commit tag: "v4.0"
+```
+
 
