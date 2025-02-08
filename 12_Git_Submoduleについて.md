@@ -820,6 +820,8 @@ gitGraph
 
 ## Git 用語集
 
+![image](https://github.com/user-attachments/assets/f6863aef-fb9f-4dca-9eb8-284ae40fede6)
+
 | 用語 | 意味 |
 |------|------|
 | **リポジトリ (Repository)** | バージョン管理されたファイルやディレクトリを格納する場所。Gitでは、プロジェクトの履歴、すなわちファイルの変更点や変更日時などの情報が保存される。 |
