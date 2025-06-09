@@ -93,6 +93,15 @@ load_system(modelName);
 StopTime = num2str(max(t_in));  
 set_param(modelName, 'StopTime', StopTime);
 
+% ────────── 固定ステップソルバーの設定 ──────────
+% ソルバータイプを「固定ステップ」に
+set_param(modelName, 'SolverType', 'Fixed-step');
+% ソルバーを「ode4（4次ルンゲクッタ）」に（離散モデルなら 'FixedStepDiscrete' でもOK）
+set_param(modelName, 'Solver', 'ode4');
+% 固定ステップ幅を 0.01 秒に
+set_param(modelName, 'FixedStep', '0.01');
+% ─────────────────────────────────────────────
+
 %  4) ワークスペースの時系列データを Inport 経由で流し込む場合
 % （あらかじめ input.time, input.signals.values, input.signals.dimensions を
 %  準備してある想定）
