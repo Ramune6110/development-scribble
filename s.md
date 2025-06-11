@@ -79,3 +79,106 @@ end
 
 ```
 
+```matlab
+function convertOld2NewAsc(oldAscFile, excelFile, newAscFile)
+% convertOld2NewAsc  旧型ASC → 新型ASCに一括変換
+% 
+% oldAscFile : 旧型ASCファイル名（例: 'old.asc'）
+% excelFile  : 変数一覧Excelファイル名（例: 'vars.xlsx'）
+% newAscFile : 出力先新型ASCファイル名（例: 'new.asc'）
+%
+% 旧型ASCフォーマット:
+%   0.000 x := 0.100
+%
+% 変数一覧Excelのフォーマット（1行目ヘッダー／4列固定）:
+%   環境変数名 | マクロパス | 変数型 | 符号
+%   x           | G5M        | 1     | 1
+%   y           | G5M        | 2     | 1
+%
+% 新型ASCフォーマット:
+%   0.000 SV: 1 0 1 ::G5M::x = 0.100000
+
+    %--------------------------------------------------------------------------
+    % 1) 変数一覧Excelファイルをセル配列で読み込む
+    raw = readcell(excelFile);
+    % raw(1,:) はヘッダー行、raw(2:end,:) がデータ
+    envNames   = raw(2:end, 1);        % { 'x'; 'y'; ... }
+    macroPaths = raw(2:end, 2);        % { 'G5M'; 'G5M'; ... }
+    varTypes   = cell2mat(raw(2:end, 3)); % [1; 2; ...]
+    signs      = cell2mat(raw(2:end, 4)); % [1; 1; ...]
+    %--------------------------------------------------------------------------
+
+    %--------------------------------------------------------------------------
+    % 2) 旧型ASCファイルをオープン
+    fidIn = fopen(oldAscFile, 'r');
+    if fidIn < 0
+        error('Cannot open old ASC file: %s', oldAscFile);
+    end
+    fidOut = fopen(newAscFile, 'w');
+    if fidOut < 0
+        fclose(fidIn);
+        error('Cannot open new ASC file: %s', newAscFile);
+    end
+    %--------------------------------------------------------------------------
+
+    %--------------------------------------------------------------------------
+    % 3) 旧型ASCを一行ずつ読み込み→新型フォーマットで出力
+    %    旧型行例: "0.100 x := 0.200"
+    expr = '^\s*(?<sec>[-+0-9.eE]+)\s+(?<name>\w+)\s*:=\s*(?<val>[-+0-9.eE]+)';
+    while true
+        line = fgetl(fidIn);
+        if ~ischar(line), break; end  % EOF
+        tok = regexp(line, expr, 'names');
+        if isempty(tok), continue; end
+
+        sec  = str2double(tok.sec);
+        name = tok.name;
+        val  = str2double(tok.val);
+
+        % 変数一覧からインデックスを探す
+        idx = find(strcmp(envNames, name), 1);
+        if isempty(idx)
+            warning('Variable "%s" not found in %s', name, excelFile);
+            continue;
+        end
+
+        % 対応するマクロパス等を取得
+        vtype = varTypes(idx);
+        sgn   = signs(idx);
+        macro = macroPaths{idx};
+        env   = envNames{idx};
+
+        % 新型フォーマットで書き込み
+        fprintf(fidOut, '%.3f SV: %d 0 %d ::%s::%s = %.6f\n', ...
+            sec, vtype, sgn, macro, env, val);
+    end
+    %--------------------------------------------------------------------------
+
+    %--------------------------------------------------------------------------
+    % 4) ファイルクローズ
+    fclose(fidIn);
+    fclose(fidOut);
+    fprintf('Converted "%s" → "%s"\n', oldAscFile, newAscFile);
+    %--------------------------------------------------------------------------
+end
+
+% runConvertOld2NewAsc
+% Define file names
+oldAscFile = 'old.asc';
+excelFile  = 'vars.xlsx';
+newAscFile = 'new.asc';
+
+% Check that files exist
+if ~isfile(oldAscFile)
+    error('Old ASC file "%s" not found.', oldAscFile);
+end
+if ~isfile(excelFile)
+    error('Excel file "%s" not found.', excelFile);
+end
+
+% Perform conversion
+convertOld2NewAsc(oldAscFile, excelFile, newAscFile);
+
+```
+
+
