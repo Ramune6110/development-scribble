@@ -181,4 +181,117 @@ convertOld2NewAsc(oldAscFile, excelFile, newAscFile);
 
 ```
 
+```matlab
+% runConvertOld2NewAsc.m
+% Batch convert multiple old-format ASC files to new-format ASC using Excel mapping.
+% Folder structure:
+%   runConvertOld2NewAsc.m
+%   old_data/      (contains old-format .asc files)
+%   new_data/      (will receive new-format .asc files)
+%   vars.xlsx      (Excel mapping file)
+%
+% Usage:
+%   Place this script, the "old_data" folder, the "new_data" folder (or let script create it),
+%   and "vars.xlsx" in the same directory.
+%   Then run:
+%     >> runConvertOld2NewAsc
 
+function runConvertOld2NewAsc()
+    % Configuration
+    oldFolder = 'old_data';
+    newFolder = 'new_data';
+    excelFile = 'vars.xlsx';
+
+    % Verify folders
+    if ~isfolder(oldFolder)
+        error('Old data folder "%s" does not exist.', oldFolder);
+    end
+    if ~exist(newFolder, 'dir')
+        mkdir(newFolder);
+    end
+    if ~isfile(excelFile)
+        error('Excel mapping file "%s" not found.', excelFile);
+    end
+
+    % Get list of .asc files in oldFolder
+    ascFiles = dir(fullfile(oldFolder, '*.asc'));
+    if isempty(ascFiles)
+        fprintf('No .asc files found in %s. Nothing to convert.\n', oldFolder);
+        return;
+    end
+
+    % Loop through each file and convert
+    for k = 1:numel(ascFiles)
+        oldName = ascFiles(k).name;
+        oldPath = fullfile(oldFolder, oldName);
+        [~, baseName, ~] = fileparts(oldName);
+        newName = [baseName '_new.asc'];
+        newPath = fullfile(newFolder, newName);
+
+        fprintf('Converting %s -> %s...\n', oldName, newName);
+        convertOneFile(oldPath, excelFile, newPath);
+    end
+    fprintf('Batch conversion completed: %d files processed.\n', numel(ascFiles));
+end
+
+%% Local function: convert a single file
+function convertOneFile(oldAscFile, excelFile, newAscFile)
+    % Read mapping from Excel
+    raw        = readcell(excelFile);
+    envNames   = raw(2:end,1);
+    macroPaths = raw(2:end,2);
+    varTypes   = cell2mat(raw(2:end,3));
+    signs      = cell2mat(raw(2:end,4));
+
+    % Open files
+    fidIn  = fopen(oldAscFile, 'r');
+    fidOut = fopen(newAscFile, 'w');
+    if fidIn < 0 || fidOut < 0
+        error('Failed to open %s or %s for conversion.', oldAscFile, newAscFile);
+    end
+
+    % Regex for old-format lines: "0.000 x := 0.100"
+    expr = '^(?<sec>[-+0-9.eE]+)\s+(?<name>\w+)\s*:=\s*(?<val>[-+0-9.eE]+)';
+
+    % Process each line
+    while true
+        tline = fgetl(fidIn);
+        if ~ischar(tline), break; end
+        tok = regexp(strtrim(tline), expr, 'names');
+        if isempty(tok), continue; end
+
+        sec  = str2double(tok.sec);
+        name = tok.name;
+        val  = str2double(tok.val);
+
+        % Lookup mapping
+        idx = find(strcmp(envNames, name), 1);
+        if isempty(idx)
+            warning('Variable "%s" not found in mapping. Skipping.', name);
+            continue;
+        end
+        vtype = varTypes(idx);
+        sgn   = signs(idx);
+        macro = macroPaths{idx};
+        env   = envNames{idx};
+
+        % Format value based on type
+        switch vtype
+            case 1
+                valStr = sprintf('%.3f', val);       % fixed 3 decimals
+            case {2, 6}
+                valStr = sprintf('%d', round(val));   % integer
+            otherwise
+                valStr = sprintf('%.6f', val);
+        end
+
+        % Write new-format line
+        fprintf(fidOut, '%.3f SV: %d 0 %d ::%s::%s = %s\n', ...
+            sec, vtype, sgn, macro, env, valStr);
+    end
+
+    fclose(fidIn);
+    fclose(fidOut);
+end
+
+```
