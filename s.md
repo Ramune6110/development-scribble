@@ -295,3 +295,96 @@ function convertOneFile(oldAscFile, excelFile, newAscFile)
 end
 
 ```
+
+```matlab
+% runConvertCsv2Asc.m
+% ================================================
+% old_data/*.csv → new_data/*_new.asc 一括変換
+% vars.xlsx からマッピング情報を読み込む (readcell版)
+% ================================================
+
+%% 1) 準備
+csvDir  = 'csv_data';
+ascDir  = 'asc_data';
+mapFile = 'vars.xlsx';
+
+if ~exist(ascDir,'dir')
+    mkdir(ascDir);
+end
+
+% --- 変数一覧Excelを readcell で読み込む ---
+%   raw{1,:} は『環境変数名』『マクロパス』『変数型』『符号』のヘッダ
+raw       = readcell(mapFile);
+envNames   = string(raw(2:end,1));         % {'x'; 'y'; ...}
+macroPaths = string(raw(2:end,2));         % {'G5M'; 'G5M'; ...}
+varTypes   = cell2mat(raw(2:end,3));       % [1; 2; ...]
+signs      = cell2mat(raw(2:end,4));       % [0; 1; ...]
+
+%% 2) old_data フォルダ内の CSV を一括処理
+csvFiles = dir(fullfile(csvDir,'*.csv'));
+if isempty(csvFiles)
+    error('old_data フォルダに .csv が見つかりません。');
+end
+
+for k = 1:numel(csvFiles)
+    inName   = csvFiles(k).name;
+    baseName = inName(1:end-4);
+    inPath   = fullfile(csvDir,  inName);
+    outPath  = fullfile(ascDir, [baseName '_new.asc']);
+    fprintf('Converting %s → %s\n', inPath, outPath);
+    convertCsvFile(inPath, outPath, envNames, macroPaths, varTypes, signs);
+end
+
+fprintf('Done: %d files converted.\n', numel(csvFiles));
+
+
+%% --- ローカル関数 ---
+function convertCsvFile(csvFile, ascFile, envNames, macroPaths, varTypes, signs)
+    % CSV を読み込み、新型ASC出力
+    T = readtable(csvFile, 'TextType','string');
+    times    = T{:,1};     % time 列
+    varNames = lower(string(T.Properties.VariableNames(2:end)));  % {'x','y','z'}
+
+    fid = fopen(ascFile,'w');
+    if fid<0, error('Cannot open %s',ascFile); end
+
+    hit = 0;
+    for i = 1:numel(times)
+        sec = times(i);
+        for j = 1:numel(varNames)
+            name = varNames(j);
+            val  = T{i,j+1};
+
+            % マッピング検索 (大文字小文字無視)
+            idx = find(envNames == name, 1);
+            if isempty(idx)
+                warning('  [%s] not in mapping, skipping.', name);
+                continue;
+            end
+            hit = hit + 1;
+
+            vtype = varTypes(idx);
+            sgn   = signs(idx);
+            macro = macroPaths(idx);
+            env   = envNames(idx);
+
+            % 値のフォーマット
+            if vtype == 1
+                valStr = sprintf('%.3f', double(val));      % 小数点以下3桁
+            elseif vtype==2 || vtype==6
+                valStr = sprintf('%d', round(double(val))); % 整数型
+            else
+                valStr = sprintf('%.6f', double(val));     % デフォルト6小数点
+            end
+
+            fprintf(fid, '%.3f SV: %d 0 %d ::%s::%s = %s\n', ...
+                sec, vtype, sgn, char(macro), char(env), valStr);
+        end
+    end
+
+    fclose(fid);
+    fprintf('  %s : %d lines written\n', ascFile, hit);
+end
+
+```
+
