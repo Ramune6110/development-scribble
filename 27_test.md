@@ -350,3 +350,148 @@ end
 
 ```
 
+```matlab
+%% dynamicPlotTestPatterns.m
+% CSV を読み込んで .mat 保存、timeseries 作成、変数名で動的プロット
+% 期待値データの処理・プロットはユーザー選択で ON/OFF を切り替え
+clear; close all; clc;
+
+%% 1) 入力データの読み込み・処理
+[inputTime, inputValues, inputVarNames] = loadCsvData('input_test.csv');
+save('input_test.mat', 'inputTime','inputValues','inputVarNames');
+createTimeseriesObjects(inputTime, inputValues, inputVarNames);
+plotTimeSeries(inputTime, inputValues, inputVarNames, '入力テストパターン', 'b-');
+
+%% 2) 期待値データを処理するかユーザー選択
+answ = input('期待値データを処理・プロットしますか？ (Y/N) [Y]: ','s');
+if isempty(answ), answ = 'Y'; end
+doExpected = strcmpi(answ,'Y');
+
+if doExpected
+    %% 2-1) 期待値データの読み込み
+    [expTime, expValues, expVarNames] = loadCsvData('expected_test.csv');
+    %% 2-2) .mat 保存
+    save('expected_test.mat', 'expTime','expValues','expVarNames');
+    %% 2-3) timeseries オブジェクト生成
+    createTimeseriesObjects(expTime, expValues, expVarNames);
+    %% 2-4) 期待値データのプロット
+    plotTimeSeries(expTime, expValues, expVarNames, '期待値テストパターン', 'r--');
+else
+    fprintf('期待値データの処理・プロットをスキップしました。\n');
+end
+
+%% ─── ローカル関数 ─────────────────────────────────────────────
+
+function [timeVec, dataMat, varNames] = loadCsvData(csvFile)
+% loadCsvData  CSVファイルを読み込み、時刻ベクトル, データ行列, 変数名を取得
+    tbl      = readtable(csvFile, 'TextType','string');
+    timeVec  = tbl{:,1};            % 1列目 = time
+    dataMat  = tbl{:,2:end};        % 以降の列がデータ
+    varNames = tbl.Properties.VariableNames(2:end);
+end
+
+function createTimeseriesObjects(timeVec, dataMat, varNames)
+% createTimeseriesObjects  MATLAB ワークスペースに timeseries オブジェクトを作成
+    for i = 1:numel(varNames)
+        tsName = [varNames{i} '_ts'];
+        assignin('base', tsName, timeseries(dataMat(:,i), timeVec));
+    end
+end
+
+function plotTimeSeries(timeVec, dataMat, varNames, figTitle, lineSpec)
+% plotTimeSeries  変数名をラベルに、自動で縦 n 行プロット
+    n = numel(varNames);
+    figure('Name',figTitle,'NumberTitle','off');
+    for k = 1:n
+        subplot(n,1,k);
+        plot(timeVec, dataMat(:,k), lineSpec, 'LineWidth',1.5);
+        ylabel(varNames{k}, 'Interpreter','none');
+        title([figTitle ' - ' varNames{k}], 'Interpreter','none');
+        grid on;
+        if k==n
+            xlabel('Time [s]');
+        end
+    end
+end
+```
+
+```matlab
+%% dynamicPlotTestPatterns.m
+% CSV を読み込んで .mat 保存、timeseries 作成、変数名で動的プロット
+% - 期待値データの処理・プロットはユーザー選択
+% - 入力データの描画変数もユーザー選択可能
+clear; close all; clc;
+
+%% 1) 入力データ読み込み
+[inputTime, inputValues, inputVarNames] = loadCsvData('input_test.csv');
+save('input_test.mat', 'inputTime','inputValues','inputVarNames');
+
+%% 2) ユーザーに入力データの描画変数を選択させる
+fprintf('--- 入力変数一覧 ---\n');
+for i = 1:numel(inputVarNames)
+    fprintf('  %2d: %s\n', i, inputVarNames{i});
+end
+sel = input('描画したい変数の番号を [1 3 5] のように入力（Enter で全選択）: ');
+if isempty(sel)
+    sel = 1:numel(inputVarNames);
+end
+sel = sel(sel>=1 & sel<=numel(inputVarNames));  % 範囲チェック
+selNames  = inputVarNames(sel);
+selValues = inputValues(:,sel);
+
+%% 3) Simulink 用 timeseries オブジェクト生成（必要なら）
+createTimeseriesObjects(inputTime,    inputValues,    inputVarNames);
+
+%% 4) 選択された入力変数をプロット
+plotTimeSeries(inputTime, selValues, selNames, '入力テストパターン', 'b-');
+
+%% 5) 期待値データの処理・プロット選択
+answ = input('期待値データを処理・プロットしますか？ (Y/N) [Y]: ','s');
+if isempty(answ), answ = 'Y'; end
+if strcmpi(answ,'Y')
+    [expTime, expValues, expVarNames] = loadCsvData('expected_test.csv');
+    save('expected_test.mat', 'expTime','expValues','expVarNames');
+    createTimeseriesObjects(expTime, expValues, expVarNames);
+    plotTimeSeries(expTime, expValues, expVarNames, '期待値テストパターン', 'r--');
+else
+    fprintf('期待値データの処理・プロットをスキップしました。\n');
+end
+
+
+%% ─── ローカル関数 ─────────────────────────────────────────────
+
+function [timeVec, dataMat, varNames] = loadCsvData(csvFile)
+% loadCsvData  CSV を読み込み、時刻ベクトル、データ行列、変数名を取得
+    tbl      = readtable(csvFile, 'TextType','string');
+    timeVec  = tbl{:,1};            % 1列目 = time
+    dataMat  = tbl{:,2:end};        % 以降の列がデータ
+    varNames = tbl.Properties.VariableNames(2:end);
+end
+
+function createTimeseriesObjects(timeVec, dataMat, varNames)
+% createTimeseriesObjects  MATLAB ワークスペースに timeseries オブジェクトを作成
+    for i = 1:numel(varNames)
+        tsName = [varNames{i} '_ts'];
+        assignin('base', tsName, timeseries(dataMat(:,i), timeVec));
+    end
+end
+
+function plotTimeSeries(timeVec, dataMat, varNames, figTitle, lineSpec)
+% plotTimeSeries  変数名をラベルに、自動で縦 n 行プロット
+    n = numel(varNames);
+    figure('Name', figTitle, 'NumberTitle','off');
+    for k = 1:n
+        subplot(n,1,k);
+        plot(timeVec, dataMat(:,k), lineSpec, 'LineWidth',1.5);
+        ylabel(varNames{k}, 'Interpreter','none');
+        title([figTitle ' - ' varNames{k}], 'Interpreter','none');
+        grid on;
+        if k==n
+            xlabel('Time [s]');
+        end
+    end
+end
+```
+
+
+
