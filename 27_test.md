@@ -496,6 +496,8 @@ end
 ---
 25.10.5
 
+<img width="576" height="324" alt="image" src="https://github.com/user-attachments/assets/4d90baad-61b4-45e1-b181-9f02ae351e0b" />
+
 ```matlab
 clear;
 close all;
