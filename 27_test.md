@@ -493,5 +493,185 @@ function plotTimeSeries(timeVec, dataMat, varNames, figTitle, lineSpec)
 end
 ```
 
+---
+25.10.5
 
+```matlab
+clear;
+close all;
+clc;
+
+% plot_io_grouped_csv('csv_data/input_test10.csv');
+% plot_io_grouped_csv2('csv_data/input_test10.csv');
+plot_io_grouped_csv2('testdata/test01.csv');
+
+function S = plot_io_grouped_csv2(csvPath)
+% plot_io_grouped_csv2 (R2019a対応)
+% 1行目: 見出し（"入力" 開始列 と "出力" 開始列。他セルは空欄）
+% 2行目: 列名（例: time,x,y,z,w,v）
+% 3行目～: データ
+%
+% 追加仕様:
+%   - 入力を MAT 保存:  testdata/<csv名>_input.mat  （列名そのまま）
+%   - 出力を MAT 保存:  testdata/<csv名>_output.mat （列名そのまま）
+%   - MAT 内には常に 'time' も保存
+
+% ===== 固定スタイル =====
+FIG_POS   = [100 100 400 600];
+LW        = 1.6;
+FONTSIZE  = 11;
+GRID_ON   = true;
+INPUT_TAG = '入力';
+OUTPUT_TAG= '出力';
+TIMENAME  = 'time';
+SAVE_DIR_IMG  = 'testdata';   % （CSVと同フォルダ内にある時のみ保存）
+SAVE_DIR_MAT  = 'testdata';  % （カレント直下）なければ作成
+
+assert(exist(csvPath,'file')==2, 'ファイルが見つかりません: %s', csvPath);
+
+% ===== 読み込み（#行/空行は無視） =====
+txt = fileread(csvPath); txt = rm_bom_if_any(txt);
+lines = regexp(txt, '\r\n|\n|\r', 'split');
+keep = true(1,numel(lines));
+for i=1:numel(lines)
+    t = strtrim(lines{i});
+    if isempty(t) || (~isempty(t) && t(1)=='#'), keep(i)=false; end
+end
+lines = lines(keep);
+assert(numel(lines) >= 3, 'CSVは少なくとも3行（見出し/列名/データ）が必要です。');
+
+% ===== 見出し/列名 =====
+roleRow = split_preserve_empty(lines{1});
+nameRow = split_preserve_empty(lines{2});
+nc = max(numel(roleRow), numel(nameRow));
+if numel(roleRow) < nc, roleRow(end+1:nc) = {''}; end
+if numel(nameRow) < nc, nameRow(end+1:nc) = {''}; end
+
+idxIn  = find(strcmp(roleRow, INPUT_TAG), 1, 'first');
+idxOut = find(strcmp(roleRow, OUTPUT_TAG), 1, 'first');
+assert(~isempty(idxIn),  '1行目に「%s」が見つかりません。', INPUT_TAG);
+assert(~isempty(idxOut), '1行目に「%s」が見つかりません。', OUTPUT_TAG);
+assert(idxOut > idxIn, '「%s」は「%s」より右側に配置してください。', OUTPUT_TAG, INPUT_TAG);
+
+% ===== データを table で読む =====
+tmp = [tempname,'.csv'];
+fid = fopen(tmp,'w');
+fprintf(fid, '%s\n', join_with_commas(nameRow));
+for i=3:numel(lines), fprintf(fid, '%s\n', lines{i}); end
+fclose(fid);
+T = readtable(tmp); delete(tmp);
+
+varNames = T.Properties.VariableNames;
+timeIdx = find(strcmpi(varNames, TIMENAME), 1, 'first');
+assert(~isempty(timeIdx), '2行目の列名に "%s" が必要です。', TIMENAME);
+
+% ===== 入出力列の決定（位置ベース, timeは除外） =====
+ncols = numel(varNames);
+inputRange  = max(idxIn,1)  : max(idxOut-1,0);
+outputRange = max(idxOut,1) : nc;
+inputRange  = inputRange(inputRange  >=1 & inputRange  <= ncols);
+outputRange = outputRange(outputRange>=1 & outputRange<= ncols);
+inputRange(inputRange==timeIdx)   = [];
+outputRange(outputRange==timeIdx) = [];
+
+% ===== 構造体へ格納 =====
+S = struct();
+S.time = T.(varNames{timeIdx});
+S.input = table();
+for k = inputRange,  nm = varNames{k}; S.input.(nm)  = T.(nm); end
+S.output = table();
+for k = outputRange, nm = varNames{k}; S.output.(nm) = T.(nm); end
+S.info = struct('csv',csvPath, ...
+    'timeColumn',TIMENAME, ...
+    'inputVars',{S.input.Properties.VariableNames}, ...
+    'outputVars',{S.output.Properties.VariableNames});
+
+% ===== 描画（縦一列：入力→出力、青・赤） =====
+nIn  = width(S.input); nOut = width(S.output); nTot = nIn + nOut;
+[csvDir, base, ~] = fileparts(csvPath);
+fig = figure('Color','w','Position',FIG_POS,'Name','IO Timeseries (Vertical)');
+set(fig,'DefaultAxesFontSize',FONTSIZE);
+
+idxPlot = 1;
+for i=1:nIn
+    ax = subplot(nTot,1,idxPlot);
+    plot(S.time, S.input{:,i}, 'LineWidth', LW, 'Color', 'blue');
+    axis tight; if GRID_ON, grid on; end
+    ylabel(S.input.Properties.VariableNames{i}, 'Interpreter','none');
+    if idxPlot < nTot, set(ax,'XTickLabel',[]); else, xlabel('Time [s]'); end
+    idxPlot = idxPlot+1;
+end
+for i=1:nOut
+    ax = subplot(nTot,1,idxPlot);
+    plot(S.time, S.output{:,i}, 'LineWidth', LW, 'Color', 'red');
+    axis tight; if GRID_ON, grid on; end
+    ylabel(S.output.Properties.VariableNames{i}, 'Interpreter','none');
+    if idxPlot < nTot, set(ax,'XTickLabel',[]); else, xlabel('Time [s]'); end
+    idxPlot = idxPlot+1;
+end
+
+% ===== 画像保存（CSVと同フォルダ内 results/ がある場合のみ） =====
+if exist(SAVE_DIR_IMG,'dir') == 7
+    [~, base, ~] = fileparts(csvPath);
+    outPng = fullfile(SAVE_DIR_IMG, [base, '_io.png']);
+    print(fig, outPng, '-dpng', '-r200');
+end
+
+% ======== MAT 保存（testdata/ に input と output を個別保存） =========
+% 保存先ディレクトリ（カレント直下）を用意
+if exist(SAVE_DIR_MAT,'dir') ~= 7, mkdir(SAVE_DIR_MAT); end
+
+% --- 入力の保存 ---
+inputNames = S.input.Properties.VariableNames;
+invalidMask = ~cellfun(@isvarname, inputNames);
+if any(invalidMask)
+    error('MAT変数名として無効な入力列名があります: %s', strjoin(inputNames(invalidMask), ', '));
+end
+if numel(unique(inputNames)) ~= numel(inputNames)
+    error('入力列名が重複しています。CSVの列名を一意にしてください。');
+end
+toSaveIn = struct(); toSaveIn.(TIMENAME) = S.time;
+for i=1:numel(inputNames)
+    nm = inputNames{i};
+    toSaveIn.(nm) = S.input{:,i};
+end
+save(fullfile(SAVE_DIR_MAT, [base, '_input.mat']), '-struct', 'toSaveIn');
+
+% --- 出力の保存 ---
+outputNames = S.output.Properties.VariableNames;
+if ~isempty(outputNames)
+    invalidMask = ~cellfun(@isvarname, outputNames);
+    if any(invalidMask)
+        error('MAT変数名として無効な出力列名があります: %s', strjoin(outputNames(invalidMask), ', '));
+    end
+    if numel(unique(outputNames)) ~= numel(outputNames)
+        error('出力列名が重複しています。CSVの列名を一意にしてください。');
+    end
+    toSaveOut = struct(); toSaveOut.(TIMENAME) = S.time;
+    for i=1:numel(outputNames)
+        nm = outputNames{i};
+        toSaveOut.(nm) = S.output{:,i};
+    end
+    save(fullfile(SAVE_DIR_MAT, [base, '_output.mat']), '-struct', 'toSaveOut');
+end
+
+end
+
+% ---------- ヘルパ ----------
+function out = rm_bom_if_any(in)
+if isempty(in), out = in; return; end
+bom = char([239 187 191]); % EF BB BF
+if strncmp(in, bom, 1), out = in(4:end); else, out = in; end
+end
+function cells = split_preserve_empty(line)
+cells = strsplit(line, ',', 'CollapseDelimiters', false);
+for i=1:numel(cells), cells{i} = strtrim(cells{i}); end
+end
+function s = join_with_commas(cells)
+if isempty(cells), s = ''; return; end
+s = cells{1};
+for i=2:numel(cells), s = [s, ',', cells{i}]; end %#ok<AGROW>
+end
+
+```
 
