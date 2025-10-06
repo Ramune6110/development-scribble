@@ -677,3 +677,198 @@ end
 
 ```
 
+<img width="577" height="353" alt="image" src="https://github.com/user-attachments/assets/78177852-6224-4fde-9c42-ee50acee4b50" />
+
+```matlab
+plot_io_grouped_csv3('testdata/test02.csv');
+
+function S = plot_io_grouped_csv3(csvPath)
+% plot_io_grouped_csv3 (R2019a対応)
+% CSVフォーマット:
+%   1行目: 見出し（"入力" 開始列 と "出力" 開始列。他セルは空欄）
+%   2行目: 英字の列名（例: time,x,y,z,w,v,a,b）
+%   3行目: 各列の日本語名（例: 時間[s], 車速[km/h]）
+%   4行目～: データ
+%
+% 仕様:
+%   - 縦一列サブプロットで「入力→出力」を描画（入力=青, 出力=赤）
+%   - y軸ラベルは「英字名\n日本語名」
+%   - x軸ラベルは 3行目の time の日本語名があればそれを使用
+%   - 画像保存: カレント直下 SAVE_DIR_IMG が存在する場合のみ
+%   - MAT保存: カレント直下 testdata/ に
+%       testdata/<csv名>_input.mat, testdata/<csv名>_output.mat
+%     変数名はCSVの英字列名そのまま（接頭語なし）、time も保存
+
+% ===== 固定スタイル =====
+FIG_POS   = [100 100 400 600];
+LW        = 1.6;
+FONTSIZE  = 11;
+GRID_ON   = true;
+INPUT_TAG = '入力';
+OUTPUT_TAG= '出力';
+TIMENAME  = 'time';
+SAVE_DIR_IMG  = 'testdata';   % 存在するときのみPNG保存（要件通り）
+SAVE_DIR_MAT  = 'testdata';   % 必要なら作成
+% COLOR_IN  = [0 0.4470 0.7410];       % 青
+% COLOR_OUT = [0.8500 0.3250 0.0980];  % 赤
+
+assert(exist(csvPath,'file')==2, 'ファイルが見つかりません: %s', csvPath);
+
+% ===== 読み込み（#行/空行は無視） =====
+txt = fileread(csvPath); txt = rm_bom_if_any(txt);
+lines = regexp(txt, '\r\n|\n|\r', 'split');
+keep = true(1,numel(lines));
+for i=1:numel(lines)
+    t = strtrim(lines{i});
+    if isempty(t) || (~isempty(t) && t(1)=='#'), keep(i)=false; end
+end
+lines = lines(keep);
+assert(numel(lines) >= 4, 'CSVは少なくとも4行（見出し/英字名/日本語名/データ）が必要です。');
+
+% ===== 1行目: 見出し / 2行目: 英字列名 / 3行目: 日本語名 =====
+roleRow = split_preserve_empty(lines{1});  % セクション見出し
+nameRow = split_preserve_empty(lines{2});  % 英字名
+jpRow   = split_preserve_empty(lines{3});  % 日本語名
+
+% 列数を揃える
+nc = max([numel(roleRow), numel(nameRow), numel(jpRow)]);
+if numel(roleRow) < nc, roleRow(end+1:nc) = {''}; end
+if numel(nameRow) < nc, nameRow(end+1:nc) = {''}; end
+if numel(jpRow)   < nc, jpRow(end+1:nc)   = {''}; end
+
+idxIn  = find(strcmp(roleRow, INPUT_TAG), 1, 'first');
+idxOut = find(strcmp(roleRow, OUTPUT_TAG), 1, 'first');
+assert(~isempty(idxIn),  '1行目に「%s」が見つかりません。', INPUT_TAG);
+assert(~isempty(idxOut), '1行目に「%s」が見つかりません。', OUTPUT_TAG);
+assert(idxOut > idxIn, '「%s」は「%s」より右側に配置してください。', OUTPUT_TAG, INPUT_TAG);
+
+% ===== データ部を table で読む（英字列名をヘッダに採用、3行目は読み飛ばす） =====
+tmp = [tempname,'.csv'];
+fid = fopen(tmp,'w');
+fprintf(fid, '%s\n', join_with_commas(nameRow)); % 2行目をヘッダ
+for i=4:numel(lines)                             % 4行目以降がデータ
+    fprintf(fid, '%s\n', lines{i});
+end
+fclose(fid);
+T = readtable(tmp); delete(tmp);
+
+varNames = T.Properties.VariableNames;
+timeIdx = find(strcmpi(varNames, TIMENAME), 1, 'first');
+assert(~isempty(timeIdx), '2行目の列名に "%s" が必要です。', TIMENAME);
+
+% ===== 入出力列の決定（位置ベース, timeは除外） =====
+ncols = numel(varNames);
+inputRange  = max(idxIn,1)  : max(idxOut-1,0);
+outputRange = max(idxOut,1) : nc;
+inputRange  = inputRange(inputRange  >=1 & inputRange  <= ncols);
+outputRange = outputRange(outputRange>=1 & outputRange<= ncols);
+inputRange(inputRange==timeIdx)   = [];
+outputRange(outputRange==timeIdx) = [];
+
+% ===== 構造体へ格納 =====
+S = struct();
+S.time   = T.(varNames{timeIdx});
+S.input  = table();
+S.output = table();
+for k = inputRange,  nm = varNames{k}; S.input.(nm)  = T.(nm); end
+for k = outputRange, nm = varNames{k}; S.output.(nm) = T.(nm); end
+S.info = struct('csv',csvPath, ...
+    'timeColumn',TIMENAME, ...
+    'inputVars',{S.input.Properties.VariableNames}, ...
+    'outputVars',{S.output.Properties.VariableNames}, ...
+    'jpNames',{jpRow});   % 日本語名も保持（列位置で参照）
+
+% ===== 描画（縦一列：入力→出力、ラベル=英字名\n日本語名） =====
+nIn  = width(S.input); nOut = width(S.output); nTot = nIn + nOut;
+[csvDir, base, ~] = fileparts(csvPath);
+fig = figure('Color','w','Position',FIG_POS,'Name','IO Timeseries (Vertical, JP label)');
+set(fig,'DefaultAxesFontSize',FONTSIZE);
+
+% x軸ラベル（timeの日本語名があれば使う）
+jpTime = '';
+if timeIdx <= numel(jpRow), jpTime = jpRow{timeIdx}; end
+if isempty(jpTime), xLabelText = 'Time [s]'; else, xLabelText = jpTime; end
+
+idxPlot = 1;
+% 入力（青）
+for i=1:nIn
+    ax = subplot(nTot,1,idxPlot);
+    plot(S.time, S.input{:,i}, 'LineWidth', LW, 'Color', 'blue');
+    axis tight; if GRID_ON, grid on; end
+    eng = S.input.Properties.VariableNames{i};
+    % 該当列の日本語名（列インデックスは varNames の位置）
+    colIdx = find(strcmp(varNames, eng), 1, 'first');
+    jp  = ''; if ~isempty(colIdx) && colIdx <= numel(jpRow), jp = jpRow{colIdx}; end
+    if ~isempty(jp)
+        ylabel(sprintf('%s\n%s', eng, jp), 'Interpreter','none');
+    else
+        ylabel(eng, 'Interpreter','none');
+    end
+    if idxPlot < nTot, set(ax,'XTickLabel',[]); else, xlabel(xLabelText, 'Interpreter','none'); end
+    idxPlot = idxPlot+1;
+end
+% 出力（赤）
+for i=1:nOut
+    ax = subplot(nTot,1,idxPlot);
+    plot(S.time, S.output{:,i}, 'LineWidth', LW, 'Color', 'red');
+    axis tight; if GRID_ON, grid on; end
+    eng = S.output.Properties.VariableNames{i};
+    colIdx = find(strcmp(varNames, eng), 1, 'first');
+    jp  = ''; if ~isempty(colIdx) && colIdx <= numel(jpRow), jp = jpRow{colIdx}; end
+    if ~isempty(jp)
+        ylabel(sprintf('%s\n%s', eng, jp), 'Interpreter','none');
+    else
+        ylabel(eng, 'Interpreter','none');
+    end
+    if idxPlot < nTot, set(ax,'XTickLabel',[]); else, xlabel(xLabelText, 'Interpreter','none'); end
+    idxPlot = idxPlot+1;
+end
+
+% ===== 画像保存（SAVE_DIR_IMG が存在する場合のみ） =====
+if exist(SAVE_DIR_IMG,'dir') == 7
+    outPng = fullfile(SAVE_DIR_IMG, [base, '_io.png']);
+    print(fig, outPng, '-dpng', '-r200');
+end
+
+% ======== MAT 保存（testdata/ に input と output を個別保存） =========
+if exist(SAVE_DIR_MAT,'dir') ~= 7, mkdir(SAVE_DIR_MAT); end
+
+% --- 入力の保存（英字名そのまま） ---
+inputNames = S.input.Properties.VariableNames;
+invalidMask = ~cellfun(@isvarname, inputNames);
+if any(invalidMask), error('MAT変数名として無効な入力列名: %s', strjoin(inputNames(invalidMask), ', ')); end
+if numel(unique(inputNames)) ~= numel(inputNames), error('入力列名が重複しています。'); end
+toSaveIn = struct(); toSaveIn.(TIMENAME) = S.time;
+for i=1:numel(inputNames), nm = inputNames{i}; toSaveIn.(nm) = S.input{:,i}; end
+save(fullfile(SAVE_DIR_MAT, [base, '_input.mat']), '-struct', 'toSaveIn');
+
+% --- 出力の保存（英字名そのまま） ---
+outputNames = S.output.Properties.VariableNames;
+if ~isempty(outputNames)
+    invalidMask = ~cellfun(@isvarname, outputNames);
+    if any(invalidMask), error('MAT変数名として無効な出力列名: %s', strjoin(outputNames(invalidMask), ', ')); end
+    if numel(unique(outputNames)) ~= numel(outputNames), error('出力列名が重複しています。'); end
+    toSaveOut = struct(); toSaveOut.(TIMENAME) = S.time;
+    for i=1:numel(outputNames), nm = outputNames{i}; toSaveOut.(nm) = S.output{:,i}; end
+    save(fullfile(SAVE_DIR_MAT, [base, '_output.mat']), '-struct', 'toSaveOut');
+end
+
+end
+
+% ----------------- ヘルパ -----------------
+function out = rm_bom_if_any(in)
+if isempty(in), out = in; return; end
+bom = char([239 187 191]); % EF BB BF
+if strncmp(in, bom, 1), out = in(4:end); else, out = in; end
+end
+function cells = split_preserve_empty(line)
+cells = strsplit(line, ',', 'CollapseDelimiters', false);
+for i=1:numel(cells), cells{i} = strtrim(cells{i}); end
+end
+function s = join_with_commas(cells)
+if isempty(cells), s = ''; return; end
+s = cells{1};
+for i=2:numel(cells), s = [s, ',', cells{i}]; end %#ok<AGROW>
+end
+```
+
